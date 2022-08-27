@@ -1,5 +1,10 @@
 #include "perses.hpp"
 
+#include <algorithm>
+#include <cctype>
+#include <string>
+
+
 using namespace perses;
 
 // TODO: Make pepp lib. work without using templates to acknowledge PE architecture.
@@ -185,8 +190,8 @@ X86BA_TEMPLATE bool X86BinaryApplication<BitSize>::addRoutineByAddress(uptr addr
 	// Here, instead of making a new structure called `BasicBlock`, we just use `Routine` 
 	// to list them all, so a vector<Routine>. We don't really need to know a block's parent/etc,
 	// since we just want to know which block ends at the highest address to get a rough calculation of the size.
-	std::vector<Routine> blocks { };
-	std::vector<size_t> codeOffsets { };
+	std::vector<Routine> blocks{ };
+	std::vector<size_t> codeOffsets{ };
 	uptr cur_highest = 0ull;
 	uptr nextKnownAddress = 0ull;
 	uptr knownEndOfFunc = 0ull;
@@ -207,6 +212,7 @@ X86BA_TEMPLATE bool X86BinaryApplication<BitSize>::addRoutineByAddress(uptr addr
 				// GHETTO - Ignore locations!
 				if (sym.name.find("loc_") != std::string::npos ||
 					sym.name.find("def_") != std::string::npos)
+
 					continue;
 			}
 
@@ -244,11 +250,11 @@ X86BA_TEMPLATE bool X86BinaryApplication<BitSize>::addRoutineByAddress(uptr addr
 			break;
 		}
 
-		instruction_t insn { };
-		
+		instruction_t insn{ };
+
 		if (!Disassembler::instance()->decode(&fileBuf[offset + codeOffsets.back()], &insn))
 		{
-			logger()->error("Instruction decode failure: rva(0x{:X} + 0x{:X})", rva, codeOffsets.back());			
+			logger()->error("Instruction decode failure: rva(0x{:X} + 0x{:X})", rva, codeOffsets.back());
 			break;
 		}
 
@@ -367,7 +373,7 @@ X86BA_TEMPLATE bool X86BinaryApplication<BitSize>::addRoutineByAddress(uptr addr
 					}
 				}
 			}
-			
+
 			if (!insn.decoded.operand_count_visible ||
 				!insn.isOperandType(0, ZYDIS_OPERAND_TYPE_IMMEDIATE))
 			{
@@ -445,7 +451,7 @@ X86BA_TEMPLATE bool X86BinaryApplication<BitSize>::addRoutineByAddress(uptr addr
 				//codeOffsets.pop_back();
 				if (observed)
 				{
-				//	printf("OBSERVED! 0x%llx\n", insn.address);
+					//	printf("OBSERVED! 0x%llx\n", insn.address);
 					continue;
 				}
 			}
@@ -535,7 +541,7 @@ X86BA_TEMPLATE bool X86BinaryApplication<BitSize>::addRoutineByAddress(uptr addr
 			}
 		}
 	}
-	
+
 	// Make VA
 	if (end == 0)
 		return false;
@@ -551,7 +557,7 @@ X86BA_TEMPLATE bool X86BinaryApplication<BitSize>::addRoutineByAddress(uptr addr
 	if ((end + lastInsnLen) - address < ((BitSize == PERSES_64BIT) ? 14 : 25))
 	{
 #ifdef PERSES_VERBOSE
-		printf("- Routine too small.\n"); 
+		printf("- Routine too small.\n");
 #endif
 		return false;
 	}
@@ -588,9 +594,9 @@ X86BA_TEMPLATE bool X86BinaryApplication<BitSize>::addRoutineByAddress(uptr addr
 	_routines.emplace_back(std::move(rtn));
 
 	// Signal to the linker that we write a detour and don't jump back at all.
-	
+
 	_peFile.buffer().deref<u32>(_peFile.getPEHdr().rvaToOffset(rva)) = PERSES_MUTATE_FULL;
-	
+
 	return true;
 }
 
@@ -602,31 +608,82 @@ bool X86BinaryApplication<BitSize>::addRoutineBySymbol(std::string_view symbolNa
 
 	for (auto& symbol : _mapSymbols)
 	{
+
 		if (symbol.sectionIndex == 0)
 			continue;
 
-		if (symbol.name == symbolName)
+		if (symbol.libobj.find("libvcruntime") != std::string::npos||
+			symbol.libobj.find("imgui") != std::string::npos|| 
+			symbol.libobj.find("freetype") != std::string::npos|| 
+			symbol.libobj.find("wolfssl:asn") != std::string::npos|| 
+			symbol.libobj.find("ft") != std::string::npos|| 
+			symbol.libobj.find("missed_shot_handler") != std::string::npos|| 
+			symbol.libobj.find("cpmt") != std::string::npos|| 
+			symbol.libobj.find("json") != std::string::npos|| 
+			symbol.libobj.find("directx") != std::string::npos|| 
+			symbol.libobj.find("menu_tabs") != std::string::npos|| 
+			symbol.libobj.find("ullshr") != std::string::npos|| 
+			symbol.libobj.find("llshl") != std::string::npos|| 
+			symbol.libobj.find("kernel32") != std::string::npos|| 
+			symbol.libobj.find("initsect") != std::string::npos|| 
+			symbol.libobj.find("chkstk") != std::string::npos||
+			symbol.libobj.find("ullrem") != std::string::npos||
+			symbol.libobj.find("ulldiv") != std::string::npos||
+			symbol.libobj.find("argv_mode") != std::string::npos||
+			symbol.libobj.find("std") != std::string::npos||
+			symbol.libobj.find("comsuppw") != std::string::npos||
+			symbol.libobj.find("menu") != std::string::npos||
+			symbol.libobj.find("LIBCMT") != std::string::npos||
+			symbol.libobj.find("gs_report") != std::string::npos||
+
+			symbol.libobj.find("crt") != std::string::npos)
+			continue;
+
+		std::string lower_name = symbol.name;
+		std::transform(lower_name.begin(), lower_name.end(), lower_name.begin(),
+			[](unsigned char c) { return std::tolower(c); });
+
+		if (lower_name.find("im") != std::string::npos||
+			lower_name.find("viewmodel_sequence") != std::string::npos||
+			lower_name.find("cheat_load") != std::string::npos||
+			lower_name.find("basic_string") != std::string::npos||
+			lower_name.find("store_weapons@c_esp_store") != std::string::npos||
+			lower_name.find("draw_ui_items") != std::string::npos||
+			lower_name.find("std") != std::string::npos||
+			lower_name.find("json") != std::string::npos||
+			lower_name.find("pbk") != std::string::npos||
+			lower_name.find("lambda") != std::string::npos||
+			lower_name.find("hde") != std::string::npos||
+			lower_name.find("stl") != std::string::npos||
+			lower_name.find("ft") != std::string::npos||
+			lower_name.find("tt") != std::string::npos||
+			lower_name.find("c_grenade_warning") != std::string::npos||
+			lower_name.find("$ln") != std::string::npos||
+			lower_name.find("crt") != std::string::npos||
+			lower_name.find("get_check_sum") != std::string::npos)
+			continue;
+		if (true)
 		{
 			// Calculate address manually, we can't rely on `symbol.address` since 
 			// it may be 0 (IDA Pro .map)
-			
+
 			uptr addr = symbol.sectionOffset;
 			int secIdx = symbol.sectionIndex - 1;
 			pe::SectionHeader* hdr = &_peFile.getSectionHdr(secIdx);
 
 			// Routine's can only be in executable sections.
 			if (!(hdr->getCharacteristics() & pe::SCN_MEM_EXECUTE))
-				return false;
+				continue;//return false;
 
 			// Make absolute
 			addr += getBaseAddress();
 			addr += hdr->getVirtualAddress();
-
-			return addRoutineByAddress(addr, marker);
+			logger()->debug("{} {} ", symbol.name, symbol.libobj);
+			addRoutineByAddress(addr, marker);
 		}
 	}
 
-	return false;
+	return true;
 }
 
 template<int BitSize>
@@ -657,11 +714,11 @@ bool X86BinaryApplication<BitSize>::addRoutineByAddress(uptr start, uptr end, in
 	uptr offset = _peFile.getPEHdr().rvaToOffset(rva);
 	uptr index = 0ull;
 	uint8_t* fileBuf = _peFile.base();
-	Routine rtn {};
+	Routine rtn{};
 
 	while (true)
 	{
-		instruction_t insn { };
+		instruction_t insn{ };
 
 		if (!Disassembler::instance()->decode(&fileBuf[offset + index], &insn))
 		{
@@ -688,7 +745,7 @@ bool X86BinaryApplication<BitSize>::addRoutineByAddress(uptr start, uptr end, in
 		return false;
 
 	// Wipe out the existing code
-	_peFile.scrambleVaData(rva, (end-start));
+	_peFile.scrambleVaData(rva, (end - start));
 
 	// Assign the flag to the routine (whether to mutate, virtualize, etc..)
 	rtn.addFlag(marker);
@@ -717,7 +774,7 @@ X86BA_TEMPLATE bool X86BinaryApplication<BitSize>::transformRoutines()
 	}
 
 	// Guesstimate.. Fix this..
-	if (_peFile.getRelocDir().isPresent()) 
+	if (_peFile.getRelocDir().isPresent())
 	{
 		_peFile.getRelocDir().extend(((_routines.size() + 0x3) & ~0x3) * 0x100);
 	}
@@ -786,7 +843,7 @@ X86BA_TEMPLATE void X86BinaryApplication<BitSize>::linkCode(Routine* origRtn, as
 
 		// Build new relocation block information
 		int relocSize = std::count_if(relocs.begin(), relocs.end(), [](const RelocationEntry& re) { return re.length == 0; });
-		
+
 		u32 rva = (curAddr - getBaseAddress());
 
 		// We *could* handle this in one loop, but to be consistent with compiler relocation outputs
@@ -858,11 +915,11 @@ X86BA_TEMPLATE void X86BinaryApplication<BitSize>::compile(std::string_view sect
 	uptr imageBase = _peFile.getImageBase();
 
 	logger()->debug("Compiling/placing {} mutated routines.", _proutines.size());
-	
-	
+
+
 	//
 	// Append all relocations
-	if (_peFile.getRelocDir().isPresent()) 
+	if (_peFile.getRelocDir().isPresent())
 	{
 		for (auto it = _relocBlocks.begin(); it != _relocBlocks.end(); ++it)
 		{
@@ -954,7 +1011,7 @@ X86BA_TEMPLATE void X86BinaryApplication<BitSize>::compile(std::string_view sect
 			rva -= PERSES_MARKER_SIZE;
 			originalRoutineSize = _peFile.buffer().deref<u32>(origOffset);
 		}
-		
+
 		if constexpr (BitSize == PERSES_64BIT)
 		{
 			detourAddOffset = 9;
@@ -970,7 +1027,7 @@ X86BA_TEMPLATE void X86BinaryApplication<BitSize>::compile(std::string_view sect
 			if (originalRoutineSize != PERSES_MUTATE_FULL)
 				originalRoutineSize += PERSES_MARKER_SIZE /*+5 for the end marker*/;
 		}
-		
+
 		if constexpr (BitSize == PERSES_32BIT)
 		{
 			if (originalRoutineSize == PERSES_MUTATE_FULL)
@@ -1017,7 +1074,7 @@ X86BA_TEMPLATE void X86BinaryApplication<BitSize>::compile(std::string_view sect
 				u64 cur = (newRva + rtnOffset + 5);
 
 				rtn.push_byte(0xE9);
-				rtn.push_dword((u32)(dst-cur));
+				rtn.push_dword((u32)(dst - cur));
 			}
 			else
 			{
@@ -1077,7 +1134,7 @@ X86BA_TEMPLATE void X86BinaryApplication<BitSize>::compile(std::string_view sect
 		_peFile.base()[offset] = 0xc3;
 	}
 
-	_filePath.replace_extension(_peFile.isDll() ? ".perses.dll" : _peFile.isSystemFile() ? ".perses.sys" : ".perses.exe");
+	_filePath.replace_extension(_peFile.isDll() ? ".protected.dll" : _peFile.isSystemFile() ? ".protected.sys" : ".protected.exe");
 
 	logger()->info("Compiling to {}", _filePath.string());
 
@@ -1138,12 +1195,12 @@ bool X86BinaryApplication<BitSize>::inquireJumpTable(instruction_t* insn, uptr b
 		u32 rva = dst - getBaseAddress();
 		u32 offset = getImage().getPEHdr().rvaToOffset(rva);
 		u32 scale = std::max<u32>((u32)insn->operands[1].mem.scale, sizeof(u32));
-		
+
 		// Try to force `end` value if we were supplied null.
 		if (!end)
 		{
 			end = dst;
-			
+
 			if (end < begin)
 				end = begin + 0x100;
 		}
@@ -1152,7 +1209,7 @@ bool X86BinaryApplication<BitSize>::inquireJumpTable(instruction_t* insn, uptr b
 		u32 jmpTableEntry = getImage().buffer().deref<u32>(offset);
 
 		while (jmpTableEntry >= getBaseAddress() &&
-			   jmpTableEntry <= getBaseAddress() + getImage().buffer().size())
+			jmpTableEntry <= getBaseAddress() + getImage().buffer().size())
 		{
 			if (entryCount != 0)
 			{
@@ -1248,7 +1305,7 @@ bool X86BinaryApplication<BitSize>::parseFunctionList(std::filesystem::path path
 		std::string endStr = line.substr(idx + 1);
 		uptr start = strtoull(startStr.c_str(), nullptr, 16);
 		uptr end = strtoull(endStr.c_str(), nullptr, 16);
-		
+
 		if (addRoutineByAddress(start, end, PERSES_MARKER_MUTATION))
 			++count;
 	}
@@ -1258,8 +1315,8 @@ bool X86BinaryApplication<BitSize>::parseFunctionList(std::filesystem::path path
 
 X86BA_TEMPLATE assembler::Environment X86BinaryApplication<BitSize>::getEnvironment()
 {
-	static auto env32 { assembler::Environment(assembler::Arch::kX86) };
-	static auto env64 { assembler::Environment(assembler::Arch::kX64) };
+	static auto env32{ assembler::Environment(assembler::Arch::kX86) };
+	static auto env64{ assembler::Environment(assembler::Arch::kX64) };
 
 	if constexpr (BitSize == PERSES_64BIT)
 		return env64;

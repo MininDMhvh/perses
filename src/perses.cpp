@@ -141,8 +141,8 @@ int main(int argc, char* argv[])
 		args.print_help();
 		return 1;
 	}
-
-	logger()->debug("PERSES Code Protection Engine");
+	getchar();
+	logger()->debug("Code Protection Engine");
 
 	std::string filepath = args.get<std::string>("-f");
 
@@ -181,7 +181,7 @@ std::shared_ptr<spdlog::logger> logger()
 	{
 		log = spdlog::stdout_color_mt("console");
 		log->set_level(spdlog::level::debug);
-		log->set_pattern("[%^PERSES%$] %v");
+		log->set_pattern("[%^TEST%$] %v");
 
 		spdlog::set_error_handler([](const std::string& msg) { printf("*** LOG ERROR: %s ***\n", msg.c_str()); });
 	}
